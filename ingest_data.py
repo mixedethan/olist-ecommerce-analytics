@@ -50,27 +50,19 @@ print('Buckets:')
 for bucket in response['Buckets']:
     print(f"* {bucket['Name']}")
 
-
-# logic to check content of our bucket
-# olist_bucket = s3.list_objects(Bucket=BUCKET_NAME)['Contents']
-# print(f'\nItems in {BUCKET_NAME}:')
-# for item in olist_bucket:
-#     print(item['Key'])
-
 # now lets connect to our DB
 engine = create_engine(
     f"postgresql+psycopg2://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{DB_NAME}"
 )
 
 
-
-def load_data(filename, tablename):
+def load_data(str: filename, str: tablename) -> None:
     """
     load_data: takes in a filename and its respective tablename, downloads that csv from an S3 bucket,
     then converts it to a pd.DataFrame and uploads it to an RDS database with the table name tablename
     """
 
-    print(f'Downloading {filename} from S3...')
+    print(f'\nDownloading {filename} from S3...')
     response = s3.get_object(Bucket=BUCKET_NAME, Key="olist-data/" + filename)
     
     df = pd.read_csv(response['Body'])
@@ -79,20 +71,26 @@ def load_data(filename, tablename):
     print(f'Attaching to table: {tablename}')
 
     # write to RDS
-    # blah blah blah
+    try:
+        print(f'Attempting to push {tablename} to RDS database...')
+        df.to_sql(tablename, con=engine, if_exists='replace', index=False)
+    except Exception as e:
+        print('Unable to push CSV to RDS database, exceptions: {e}')
 
-    print(f'Finished {tablename}')
-
-
-
+    print(f'Succesfully pushed: {tablename}')
 
 
 if __name__ == '__main__':
+    # if name == main:
     print('Beginning Ingestion Pipeline...')
-    
+    df_list = [] 
+
     for filename, tablename in FILES_TO_LOAD.items():
         try:
-            load_data(filename, tablename)
+            df_list.append(load_data(filename, tablename))
         except Exception as e:
             print(f"Couldn't download {filename} and upload it to the RDS DB.")
+
+    print(f'Number of tables pushed: {len(df_list)}') # should be 9
+    print('--- Completed Ingestion Pipeline! ---')
     
