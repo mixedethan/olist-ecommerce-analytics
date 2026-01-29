@@ -21,4 +21,4 @@ Olist is a Brazilian e-commerce marketplace connecting sellers to customers. We 
 Raw CSVs -> AWS S3 -> Python ETL -> AWS RDS -> PostgreSQL -> Tableau/Modeling
 
 ### ERD Diagram
-![ERD Diagram](docs/olist-erd.png)
+![ERD Diagram](docs/olist-ERD.png)
