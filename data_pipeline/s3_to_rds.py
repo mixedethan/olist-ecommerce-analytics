@@ -56,7 +56,7 @@ engine = create_engine(
 )
 
 
-def load_data(str: filename, str: tablename) -> None:
+def load_data(filename: str, tablename: str) -> None:
     """
     load_data: takes in a filename and its respective tablename, downloads that csv from an S3 bucket,
     then converts it to a pd.DataFrame and uploads it to an RDS database with the table name tablename
@@ -73,7 +73,7 @@ def load_data(str: filename, str: tablename) -> None:
     # write to RDS
     try:
         print(f'Attempting to push {tablename} to RDS database...')
-        df.to_sql(tablename, con=engine, if_exists='replace', index=False)
+        df.to_sql(tablename, con=engine, if_exists='append', index=False)
     except Exception as e:
         print('Unable to push CSV to RDS database, exceptions: {e}')
 
