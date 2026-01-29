@@ -1,10 +1,12 @@
 import boto3
-import pandas as pandas
+import pandas as pd
 from sqlalchemy import create_engine
+from sqlalchemy import text
 from io import StringIO
 import os
 from dotenv import load_dotenv
 import psycopg2
+import sys
 
 ## Let's define our globals
 # load .env variables
@@ -23,17 +25,25 @@ DB_PASSWORD = os.getenv('DB_PASSWORD')
 # s3 details
 BUCKET_NAME = 'olist-data-3482-3050'
 
-FILES_TO_LOAD = {
-    'olist_orders_dataset.csv': 'staging_orders',
-    'olist_customers_dataset.csv': 'staging_customers',
-    'olist_order_items_dataset.csv': 'staging_items',
-    'olist_products_dataset.csv': 'staging_products',
-    'olist_sellers_dataset.csv': 'staging_sellers',
-    'olist_geolocation_dataset.csv': 'staging_geolocation',
-    'olist_order_payments_dataset.csv': 'staging_payments',
-    'olist_order_reviews_dataset.csv': 'staging_reviews',
-    'product_category_name_translation.csv': 'staging_category_translation'
-}
+FILES_TO_LOAD = [ # need these to run in order to respect the database's rules (PKs, FKs, Cardinality)
+    # first upload the independent tables
+    ('olist_geolocation_dataset.csv', 'staging_geolocation'),
+    ('product_category_name_translation.csv', 'staging_category_translation'),
+
+    # next we upload the parent tables (these must exist before orders and items)
+    ('olist_customers_dataset.csv', 'staging_customers'),
+    ('olist_sellers_dataset.csv', 'staging_sellers'),
+    ('olist_products_dataset.csv', 'staging_products'),
+
+    # next the main transactional table (depends on customers)
+    ('olist_orders_dataset.csv', 'staging_orders'),
+
+    # children tables
+    ('olist_order_items_dataset.csv', 'staging_items'),
+    ('olist_order_payments_dataset.csv', 'staging_payments'),
+    ('olist_order_reviews_dataset.csv', 'staging_reviews')
+    
+]
 
 ## Now we need to connect to our two AWS interfaces
 
@@ -55,7 +65,28 @@ engine = create_engine(
     f"postgresql+psycopg2://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{DB_NAME}"
 )
 
+def initialize_database() -> None:
+    """
+    initialize_database: Runs the 'olist_architecture.sql' file located in ./sql in order to drop the tables if they exist, and then
+    reinitialize the database.
+    """
+    print('Clearing and preparing the RDS PostgreSQL Database...\n')
+    architecture_fp = './sql/olist_architecture.sql'
 
+    try:
+        with engine.connect() as con:
+            try:
+                with open(architecture_fp) as f:
+                    prep_query = text(f.read())
+                    con.execute(prep_query)
+            except Exception as e:
+                print(f'Couldn\'t open {architecture_fp} or execute it. Exception: {e}')
+                sys.exit(1)
+    except Exception as e:
+        print(f'Couldn\'t connect to the database through sqlalchemy. Exception: {e}')
+        sys.exit(1)
+
+    
 def load_data(filename: str, tablename: str) -> None:
     """
     load_data: takes in a filename and its respective tablename, downloads that csv from an S3 bucket,
@@ -75,22 +106,27 @@ def load_data(filename: str, tablename: str) -> None:
         print(f'Attempting to push {tablename} to RDS database...')
         df.to_sql(tablename, con=engine, if_exists='append', index=False)
     except Exception as e:
-        print('Unable to push CSV to RDS database, exceptions: {e}')
+        print(f'Unable to push CSV to RDS database, exceptions: {e}')
 
     print(f'Succesfully pushed: {tablename}')
 
 
 if __name__ == '__main__':
     # if name == main:
-    print('Beginning Ingestion Pipeline...')
+
+    print('\n' + ('=' * 10) + 'Beginning Ingestion Pipeline' + ('=' * 10))
+
+    initialize_database()
+
     df_list = [] 
 
-    for filename, tablename in FILES_TO_LOAD.items():
+    for filename, tablename in FILES_TO_LOAD:
         try:
             df_list.append(load_data(filename, tablename))
         except Exception as e:
-            print(f"Couldn't download {filename} and upload it to the RDS DB.")
+            print(f"Couldn't download {filename} and upload it to the RDS DB. Exception {e}")
+            sys.exit(1)
 
     print(f'Number of tables pushed: {len(df_list)}') # should be 9
-    print('--- Completed Ingestion Pipeline! ---')
+    print(('=' * 10) + 'Completed Ingestion Pipeline!' + ('=' * 10))
     
