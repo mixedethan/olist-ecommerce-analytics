@@ -7,8 +7,8 @@ Olist is a Brazilian e-commerce marketplace connecting sellers to customers. The
 2. Create reliable business metrics using SQL analytics.
 
 #### Future Goals
-- [ ] Develop a seller performance scorecard to guide operational prioritization.
-- [ ] Apply unsupervised learning to customer segmentation to identify at-risk customer segments.
+- [ ] Develop a seller performance scorecard.
+- [ ] Apply unsupervised learning to both customer and seller segmentation.
 
 ### Tech Stacks
 - AWS S3 - raw storage
