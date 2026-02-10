@@ -12,13 +12,13 @@ SELECT
     i.product_id,
 	
 	-- dates and performance
-    o.purchase_ts,
-    o.delivered_ts,
-    o.estimated_ts,
-	o.delivery_lead_time,
-	o.delta_estimated_actual,
+    TO_CHAR(o.purchase_ts, 'YYYY-MM-DD HH24:MI:SS') AS purchase_ts,
+    TO_CHAR(o.delivered_ts, 'YYYY-MM-DD HH24:MI:SS') AS delivered_ts,
+    TO_CHAR(o.estimated_ts, 'YYYY-MM-DD HH24:MI:SS') AS estimated_ts,
+    TO_CHAR(i.seller_shipping_deadline, 'YYYY-MM-DD HH24:MI:SS') AS seller_shipping_deadline,
+    ROUND(o.delivery_lead_time::numeric, 2) AS delivery_days, -- time from delivery to purchase
+    ROUND(o.delta_estimated_actual::numeric, 2) AS days_ahead_of_estimate, -- difference between est delivery and actual delivery
 	o.delivery_check,
-    i.seller_shipping_deadline,
     
 
 	-- product info
@@ -46,5 +46,4 @@ LEFT JOIN cleaning.cleaning_reviews r ON i.order_id = r.order_id;
 SELECT * FROM cleaning.sales_master;
 
 DROP TABLE IF EXISTS analysis.sales_master;
-CREATE TABLE analysis.sales_master AS
-SELECT * FROM cleaning.sales_master;
+CREATE TABLE analysis.sales_master AS SELECT * FROM cleaning.sales_master;
