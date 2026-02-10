@@ -1,16 +1,7 @@
--- CLEANING --
-
--- Due to the schema-on-write technique, rows which didn't adhere to the ERD's structure were dropped.
--- This makes our job here a little less intensive.
-
--- introduce an unaccent module to help standardize the location names
-CREATE EXTENSION IF NOT EXISTS unaccent WITH SCHEMA staging;
-SELECT * FROM pg_extension WHERE extname = 'unaccent';
-
-CREATE SCHEMA IF NOT EXISTS cleaning;
-
 				-- staging_orders -> cleaning_orders --
 -- what are we working with?
+DROP VIEW IF EXISTS cleaning.cleaning_orders;
+
 SELECT *
 FROM staging.staging_orders;
 
@@ -21,29 +12,33 @@ GROUP BY order_status;
 
 -- create a cleaned view
 CREATE OR REPLACE VIEW cleaning.cleaning_orders AS
+WITH converted_dates AS (
+	SELECT 
+		order_id,
+		customer_id,
+		UPPER(order_status) AS order_status,
+		-- convert time columns from text to a timestamp data type
+		TO_TIMESTAMP(order_purchase_timestamp, 'YYYY-MM-DD HH24:MI:SS') AS purchase_ts,
+	    TO_TIMESTAMP(order_approved_at, 'YYYY-MM-DD HH24:MI:SS') AS approved_ts,
+	    TO_TIMESTAMP(order_delivered_carrier_date, 'YYYY-MM-DD HH24:MI:SS') AS pickup_ts,
+	    TO_TIMESTAMP(order_delivered_customer_date, 'YYYY-MM-DD HH24:MI:SS') AS delivered_ts,
+	    TO_TIMESTAMP(order_estimated_delivery_date, 'YYYY-MM-DD HH24:MI:SS') AS estimated_ts
+	FROM staging.staging_orders
+	WHERE order_status NOT IN ('canceled', 'unavailable', 'created', 'approved') -- filter outliers
+)
 SELECT 
-	order_id,
-	customer_id,
-	UPPER(order_status),
-	-- convert time columns from text to a timestamp data type
-	TO_TIMESTAMP(order_purchase_timestamp, 'YYYY-MM-DD HH24:MI:SS') AS purchase_ts,
-    TO_TIMESTAMP(order_approved_at, 'YYYY-MM-DD HH24:MI:SS') AS approved_ts,
-    TO_TIMESTAMP(order_delivered_carrier_date, 'YYYY-MM-DD HH24:MI:SS') AS pickup_ts,
-    TO_TIMESTAMP(order_delivered_customer_date, 'YYYY-MM-DD HH24:MI:SS') AS delivered_ts,
-    TO_TIMESTAMP(order_estimated_delivery_date, 'YYYY-MM-DD HH24:MI:SS') AS estimated_ts,
-	-- check if it was delivered, if not mark it. adding delivery check feature
-	CASE
-		WHEN order_delivered_customer_date IS NULL AND order_status = 'delivered' THEN 'DATA ERROR'
-		WHEN order_delivered_customer_date IS NULL THEN 'not delivered'
+	*,
+	EXTRACT(EPOCH FROM (delivered_ts - purchase_ts)) / 86400.0 AS delivery_lead_time, -- time taken from purchase to delivery in days
+	EXTRACT(EPOCH FROM (estimated_ts - delivered_ts)) / 86400.0 AS delta_estimated_actual, -- difference between estimated arrival and actual arrival in days
+	CASE -- check if it was delivered, if not mark it. adding delivery check feature
+		WHEN delivered_ts IS NULL AND order_status = 'delivered' THEN 'DATA ERROR'
+		WHEN delivered_ts IS NULL THEN 'not delivered'
 		ELSE 'delivered'
 	END as delivery_check
-FROM staging.staging_orders
--- filter out outliers
-WHERE order_status != 'canceled' AND order_status != 'unavailable' AND order_status != 'created' AND order_status != 'approved';
-
-
+FROM converted_dates;
 
 				-- staging_items -> cleaning_items --
+DROP VIEW IF EXISTS cleaning.cleaning_items;
 SELECT *
 FROM staging.staging_items;
 
@@ -69,10 +64,9 @@ SELECT
 	seller_id,
 	TO_TIMESTAMP(shipping_limit_date, 'YYYY-MM-DD HH24:MI:SS') AS seller_shipping_deadline,
 	price,
-	freight_value
+	freight_value,
+	(price + freight_value) AS total_item_value
 FROM staging.staging_items;
-
-
 
 -- join order with items --
 -- CREATE OR REPLACE VIEW cleaning.cleaning_orders_items AS
@@ -82,71 +76,9 @@ FROM staging.staging_items;
 
 
 
-				-- staging_geolocation -> cleaning_geolocation --
--- all values
-SELECT *
-FROM staging.staging_geolocation;
-
--- distinct cities
-SELECT DISTINCT geolocation_city
-FROM staging.staging_geolocation;
-
--- distinct states
-SELECT DISTINCT geolocation_state
-FROM staging.staging_geolocation;
-
--- our final view
-CREATE OR REPLACE VIEW cleaning.cleaning_geolocation AS
-SELECT
-	geolocation_zip_code_prefix AS zip_code,
-	AVG(geolocation_lat) AS lat, -- eliminate the need for multiple coords for a single zip code
-	AVG(geolocation_lng) AS long,
-	staging.unaccent(UPPER(MAX(geolocation_city))) AS city, -- arbitrarily choose a city name and remove accents for consistency
-	UPPER(MAX(geolocation_state)) AS state
-FROM staging.staging_geolocation
-GROUP BY geolocation_zip_code_prefix;
-
-SELECT *
-FROM cleaning.cleaning_geolocation;
-
-
-				-- staging_customers -> cleaning_customers --
-select *
-from staging.staging_customers;
-
--- check for nulls in columns which shouldn't contain them
-SELECT COUNT(*) AS num_null_unique_ids
-FROM staging.staging_customers
-WHERE customer_unique_id IS NULL;
-
--- check for duplicates in possible columns
-WITH customer_dupes AS (
-	SELECT 
-		customer_unique_id,
-		ROW_NUMBER() OVER(
-			PARTITION BY customer_unique_id
-		) AS num_occurences
-	FROM staging.staging_customers
-	GROUP BY customer_unique_id
-)
-
-SELECT COUNT(*) AS num_dupes
-FROM customer_dupes
-WHERE num_occurences > 1;
-
-CREATE OR REPLACE VIEW cleaning.cleaning_customers AS
-SELECT
-	customer_id,
-	customer_unique_id,
-	customer_zip_code_prefix,
-	staging.UNACCENT(UPPER(customer_city)),
-	customer_state
-FROM staging.staging_customers;
-
-SELECT *
-FROM cleaning.cleaning_customers;
-
 				-- staging_payments -> cleaning_payments --
+DROP VIEW IF EXISTS cleaning.cleaning_payments;
+
 SELECT *
 FROM staging.staging_payments;
 
@@ -169,7 +101,10 @@ SELECT *
 FROM cleaning.cleaning_payments;
 
 
+
 				-- staging_products -> cleaning_products --
+DROP VIEW IF EXISTS cleaning.cleaning_products;
+
 SELECT *
 FROM staging.staging_products;
 
@@ -200,7 +135,52 @@ ON p.product_category_name = t.product_category_name;
 SELECT *
 FROM cleaning.cleaning_products;
 
+
+
+				-- staging_customers -> cleaning_customers --
+DROP VIEW IF EXISTS cleaning.cleaning_customers;
+
+SELECT *
+FROM staging.staging_customers;
+
+-- check for nulls in columns which shouldn't contain them
+SELECT COUNT(*) AS num_null_unique_ids
+FROM staging.staging_customers
+WHERE customer_unique_id IS NULL;
+
+-- check for duplicates in possible columns
+DROP VIEW IF EXISTS cleaning.cleaning_customers;
+
+WITH customer_dupes AS (
+	SELECT 
+		customer_unique_id,
+		ROW_NUMBER() OVER(
+			PARTITION BY customer_unique_id
+		) AS num_occurences
+	FROM staging.staging_customers
+	GROUP BY customer_unique_id
+)
+
+SELECT COUNT(*) AS num_dupes
+FROM customer_dupes
+WHERE num_occurences > 1;
+
+CREATE OR REPLACE VIEW cleaning.cleaning_customers AS
+SELECT
+	customer_id,
+	customer_unique_id,
+	customer_zip_code_prefix,
+	staging.UNACCENT(UPPER(customer_city)) AS customer_city,
+	customer_state
+FROM staging.staging_customers;
+
+SELECT *
+FROM cleaning.cleaning_customers;
+
+
 				-- staging_sellers -> cleaning_sellers --
+DROP VIEW IF EXISTS cleaning.cleaning_sellers;
+
 SELECT *
 FROM staging.staging_sellers;
 
@@ -224,7 +204,10 @@ ON s.seller_zip_code_prefix = g.zip_code;
 
 SELECT * FROM cleaning.cleaning_sellers;
 
+
 				-- staging_reviews -> cleaning_reviews --
+DROP VIEW IF EXISTS cleaning.cleaning_reviews;
+
 SELECT * FROM staging.staging_reviews;
 
 CREATE OR REPLACE VIEW cleaning.cleaning_reviews AS
@@ -232,8 +215,8 @@ SELECT
 	review_id,
 	order_id,
 	review_score,
-	COALESCE(review_comment_title, 'N/A') AS review_comment_title,
-	COALESCE(review_comment_message, 'N/A') AS review_comment_message
+	review_comment_title,
+	 review_comment_message
 FROM staging.staging_reviews;
 
 SELECT * FROM cleaning.cleaning_reviews;

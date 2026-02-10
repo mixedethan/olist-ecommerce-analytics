@@ -1,6 +1,8 @@
+
 -- clearing out our pandas loaded table and regenerated its structure.
 BEGIN;
 
+-- drop the tables first before initializes the db
 DROP TABLE IF EXISTS staging_reviews, staging_payments, staging_items, staging_products, staging_sellers, staging_geolocation, staging_orders, staging_customers, staging_category_translation CASCADE;
 
 CREATE TABLE IF NOT EXISTS public.staging_category_translation
