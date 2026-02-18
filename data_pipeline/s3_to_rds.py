@@ -71,23 +71,18 @@ def initialize_database() -> None:
     reinitialize the database.
     """
     print('Clearing and preparing the RDS PostgreSQL Database...\n')
-    architecture_fp = './sql/olist_architecture.sql'
+    architecture_fp = './sql/00_olist_architecture.sql'
 
     try:
-        with engine.connect() as con:
-            try:
-                with open(architecture_fp) as f:
-                    prep_query = text(f.read())
-                    con.execute(prep_query)
-            except Exception as e:
-                print(f'Couldn\'t open {architecture_fp} or execute it. Exception: {e}')
-                sys.exit(1)
+        with engine.begin() as con:
+            with open(architecture_fp) as f:
+                con.execute(text(f.read()))
     except Exception as e:
-        print(f'Couldn\'t connect to the database through sqlalchemy. Exception: {e}')
+        print(f'Failed to initialize DB. Exception: {e}')
         sys.exit(1)
 
     
-def load_data(filename: str, tablename: str) -> None:
+def load_data(filename: str, tablename: str) -> bool:
     """
     load_data: takes in a filename and its respective tablename, downloads that csv from an S3 bucket,
     then converts it to a pd.DataFrame and uploads it to an RDS database with the table name tablename
@@ -98,19 +93,31 @@ def load_data(filename: str, tablename: str) -> None:
     
     df = pd.read_csv(response['Body'])
 
+    if tablename == "staging_products":
+        df = df.rename(columns={
+            "product_name_lenght": "product_name_length",
+            "product_description_lenght": "product_description_length",
+        })
+
     print(f'Found rows: {len(df)}')
     print(f'Attaching to table: {tablename}')
 
     # write to RDS
     try:
         print(f'Attempting to push {tablename} to RDS database...')
-        df.to_sql(tablename, con=engine, if_exists='append', index=False)
+        df.to_sql(
+                name=tablename,
+                con=engine,
+                schema='staging',
+                if_exists='append',
+                index=False)
+        print(f'Succesfully pushed: {tablename}')
+        return True
     except Exception as e:
         print(f'Unable to push CSV to RDS database, exceptions: {e}')
+        return False
 
-    print(f'Succesfully pushed: {tablename}')
-
-
+    
 if __name__ == '__main__':
     # if name == main:
 
@@ -118,15 +125,15 @@ if __name__ == '__main__':
 
     initialize_database()
 
-    df_list = [] 
+    pushed = 0 
 
     for filename, tablename in FILES_TO_LOAD:
-        try:
-            df_list.append(load_data(filename, tablename))
-        except Exception as e:
-            print(f"Couldn't download {filename} and upload it to the RDS DB. Exception {e}")
+        if load_data(filename, tablename):
+            pushed += 1
+        else:
+            print(f"Couldn't download {filename} and upload it to the RDS DB.")
             sys.exit(1)
 
-    print(f'Number of tables pushed: {len(df_list)}') # should be 9
+    print(f'Number of tables pushed: {pushed}') # should be 9
     print(('=' * 10) + 'Completed Ingestion Pipeline!' + ('=' * 10))
     
