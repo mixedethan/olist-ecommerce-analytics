@@ -1,150 +1,141 @@
+CREATE SCHEMA IF NOT EXISTS staging;
 
--- clearing out our pandas loaded table and regenerated its structure.
-BEGIN;
+DROP TABLE IF EXISTS
+  staging.staging_reviews,
+  staging.staging_payments,
+  staging.staging_items,
+  staging.staging_products,
+  staging.staging_sellers,
+  staging.staging_geolocation,
+  staging.staging_orders,
+  staging.staging_customers,
+  staging.staging_category_translation
+CASCADE;
 
--- drop the tables first before initializes the db
-DROP TABLE IF EXISTS staging_reviews, staging_payments, staging_items, staging_products, staging_sellers, staging_geolocation, staging_orders, staging_customers, staging_category_translation CASCADE;
-
-CREATE TABLE IF NOT EXISTS public.staging_category_translation
+CREATE TABLE staging.staging_category_translation
 (
-    product_category_name text COLLATE pg_catalog."default",
-    product_category_name_english text COLLATE pg_catalog."default"
+  product_category_name text,
+  product_category_name_english text
 );
 
-CREATE TABLE IF NOT EXISTS public.staging_customers
+CREATE TABLE staging.staging_customers
 (
-    customer_id text COLLATE pg_catalog."default" NOT NULL,
-    customer_unique_id text COLLATE pg_catalog."default" NOT NULL,
-    customer_zip_code_prefix bigint,
-    customer_city text COLLATE pg_catalog."default",
-    customer_state text COLLATE pg_catalog."default",
-    PRIMARY KEY (customer_id)
+  customer_id text PRIMARY KEY,
+  customer_unique_id text NOT NULL,
+  customer_zip_code_prefix integer,
+  customer_city text,
+  customer_state text
 );
 
-CREATE TABLE IF NOT EXISTS public.staging_orders
+CREATE TABLE staging.staging_orders
 (
-    order_id text COLLATE pg_catalog."default" NOT NULL,
-    customer_id text COLLATE pg_catalog."default" NOT NULL,
-    order_status text COLLATE pg_catalog."default",
-    order_purchase_timestamp text COLLATE pg_catalog."default",
-    order_approved_at text COLLATE pg_catalog."default",
-    order_delivered_carrier_date text COLLATE pg_catalog."default",
-    order_delivered_customer_date text COLLATE pg_catalog."default",
-    order_estimated_delivery_date text COLLATE pg_catalog."default",
-    PRIMARY KEY (order_id)
+  order_id text PRIMARY KEY,
+  customer_id text NOT NULL,
+  order_status text,
+  order_purchase_timestamp timestamptz,
+  order_approved_at timestamptz,
+  order_delivered_carrier_date timestamptz,
+  order_delivered_customer_date timestamptz,
+  order_estimated_delivery_date date
 );
 
-CREATE TABLE IF NOT EXISTS public.staging_geolocation
+CREATE TABLE staging.staging_geolocation
 (
-    geolocation_zip_code_prefix bigint,
-    geolocation_lat double precision,
-    geolocation_lng double precision,
-    geolocation_city text COLLATE pg_catalog."default",
-    geolocation_state text COLLATE pg_catalog."default"
+  geolocation_zip_code_prefix integer,
+  geolocation_lat double precision,
+  geolocation_lng double precision,
+  geolocation_city text,
+  geolocation_state text
 );
 
-CREATE TABLE IF NOT EXISTS public.staging_items
+CREATE TABLE staging.staging_products
 (
-    order_id text COLLATE pg_catalog."default" NOT NULL,
-    order_item_id bigint NOT NULL,
-    product_id text COLLATE pg_catalog."default" NOT NULL,
-    seller_id text COLLATE pg_catalog."default" NOT NULL,
-    shipping_limit_date text COLLATE pg_catalog."default",
-    price double precision,
-    freight_value double precision,
-    PRIMARY KEY (order_id, order_item_id, product_id, seller_id)
+  product_id text PRIMARY KEY,
+  product_category_name text,
+  product_name_length integer,
+  product_description_length integer,
+  product_photos_qty integer,
+  product_weight_g integer,
+  product_length_cm integer,
+  product_height_cm integer,
+  product_width_cm integer
 );
 
-CREATE TABLE IF NOT EXISTS public.staging_payments
+CREATE TABLE staging.staging_sellers
 (
-    order_id text COLLATE pg_catalog."default" NOT NULL,
-    payment_sequential bigint NOT NULL,
-    payment_type text COLLATE pg_catalog."default",
-    payment_installments bigint,
-    payment_value double precision,
-    PRIMARY KEY (order_id, payment_sequential)
+  seller_id text PRIMARY KEY,
+  seller_zip_code_prefix integer,
+  seller_city text,
+  seller_state text
 );
 
-CREATE TABLE IF NOT EXISTS public.staging_products
+CREATE TABLE staging.staging_items
 (
-    product_id text COLLATE pg_catalog."default" NOT NULL,
-    product_category_name text COLLATE pg_catalog."default",
-    product_name_lenght double precision,
-    product_description_lenght double precision,
-    product_photos_qty double precision,
-    product_weight_g double precision,
-    product_length_cm double precision,
-    product_height_cm double precision,
-    product_width_cm double precision,
-    PRIMARY KEY (product_id)
+  order_id text NOT NULL,
+  order_item_id integer NOT NULL,
+  product_id text NOT NULL,
+  seller_id text NOT NULL,
+  shipping_limit_date timestamptz,
+  price numeric(12,2),
+  freight_value numeric(12,2),
+  PRIMARY KEY (order_id, order_item_id)
 );
 
-CREATE TABLE IF NOT EXISTS public.staging_reviews
+CREATE TABLE staging.staging_payments
 (
-    review_id text COLLATE pg_catalog."default" NOT NULL,
-    order_id text COLLATE pg_catalog."default" NOT NULL,
-    review_score bigint,
-    review_comment_title text COLLATE pg_catalog."default",
-    review_comment_message text COLLATE pg_catalog."default",
-    review_creation_date text COLLATE pg_catalog."default",
-    review_answer_timestamp text COLLATE pg_catalog."default",
-    PRIMARY KEY (review_id, order_id)
+  order_id text NOT NULL,
+  payment_sequential integer NOT NULL,
+  payment_type text,
+  payment_installments integer,
+  payment_value numeric(12,2),
+  PRIMARY KEY (order_id, payment_sequential)
 );
 
-CREATE TABLE IF NOT EXISTS public.staging_sellers
+CREATE TABLE staging.staging_reviews
 (
-    seller_id text COLLATE pg_catalog."default" NOT NULL,
-    seller_zip_code_prefix bigint,
-    seller_city text COLLATE pg_catalog."default",
-    seller_state text COLLATE pg_catalog."default",
-    PRIMARY KEY (seller_id)
+  review_id text NOT NULL,
+  order_id text NOT NULL,
+  review_score integer,
+  review_comment_title text,
+  review_comment_message text,
+  review_creation_date timestamptz,
+  review_answer_timestamp timestamptz,
+  PRIMARY KEY (review_id, order_id)
 );
 
-ALTER TABLE IF EXISTS public.staging_orders
-    ADD CONSTRAINT fk_orders_customers FOREIGN KEY (customer_id)
-    REFERENCES public.staging_customers (customer_id) MATCH SIMPLE
-    ON UPDATE NO ACTION
-    ON DELETE NO ACTION
-    NOT VALID;
+-- FKs with unique, descriptive constraint names
+ALTER TABLE staging.staging_orders
+  ADD CONSTRAINT fk_staging_orders_customer
+  FOREIGN KEY (customer_id)
+  REFERENCES staging.staging_customers (customer_id)
+  NOT VALID;
 
+ALTER TABLE staging.staging_items
+  ADD CONSTRAINT fk_staging_items_order
+  FOREIGN KEY (order_id)
+  REFERENCES staging.staging_orders (order_id)
+  NOT VALID;
 
-ALTER TABLE IF EXISTS public.staging_items
-    ADD CONSTRAINT order_id FOREIGN KEY (order_id)
-    REFERENCES public.staging_orders (order_id) MATCH SIMPLE
-    ON UPDATE NO ACTION
-    ON DELETE NO ACTION
-    NOT VALID;
+ALTER TABLE staging.staging_items
+  ADD CONSTRAINT fk_staging_items_product
+  FOREIGN KEY (product_id)
+  REFERENCES staging.staging_products (product_id)
+  NOT VALID;
 
+ALTER TABLE staging.staging_items
+  ADD CONSTRAINT fk_staging_items_seller
+  FOREIGN KEY (seller_id)
+  REFERENCES staging.staging_sellers (seller_id)
+  NOT VALID;
 
-ALTER TABLE IF EXISTS public.staging_items
-    ADD CONSTRAINT product_id FOREIGN KEY (product_id)
-    REFERENCES public.staging_products (product_id) MATCH SIMPLE
-    ON UPDATE NO ACTION
-    ON DELETE NO ACTION
-    NOT VALID;
+ALTER TABLE staging.staging_payments
+  ADD CONSTRAINT fk_staging_payments_order
+  FOREIGN KEY (order_id)
+  REFERENCES staging.staging_orders (order_id)
+  NOT VALID;
 
-
-ALTER TABLE IF EXISTS public.staging_items
-    ADD CONSTRAINT seller_id FOREIGN KEY (seller_id)
-    REFERENCES public.staging_sellers (seller_id) MATCH SIMPLE
-    ON UPDATE NO ACTION
-    ON DELETE NO ACTION
-    NOT VALID;
-
-
-ALTER TABLE IF EXISTS public.staging_payments
-    ADD CONSTRAINT order_id FOREIGN KEY (order_id)
-    REFERENCES public.staging_orders (order_id) MATCH SIMPLE
-    ON UPDATE NO ACTION
-    ON DELETE NO ACTION
-    NOT VALID;
-
-
-ALTER TABLE IF EXISTS public.staging_reviews
-    ADD CONSTRAINT order_id FOREIGN KEY (order_id)
-    REFERENCES public.staging_orders (order_id) MATCH SIMPLE
-    ON UPDATE NO ACTION
-    ON DELETE NO ACTION
-    NOT VALID;
-
-END;
+ALTER TABLE staging.staging_reviews
+  ADD CONSTRAINT fk_staging_reviews_order
+  FOREIGN KEY (order_id)
+  REFERENCES staging.staging_orders (order_id)
+  NOT VALID;

@@ -17,7 +17,7 @@ SELECT
 	geolocation_zip_code_prefix AS zip_code,
 	AVG(geolocation_lat) AS lat, -- eliminate the need for multiple coords for a single zip code
 	AVG(geolocation_lng) AS long,
-	staging.unaccent(UPPER(MAX(geolocation_city))) AS city, -- arbitrarily choose a city name and remove accents for consistency
+	staging.UNACCENT(UPPER(MAX(geolocation_city))) AS city, -- arbitrarily choose a city name and remove accents for consistency
 	UPPER(MAX(geolocation_state)) AS state
 FROM staging.staging_geolocation
 GROUP BY geolocation_zip_code_prefix;

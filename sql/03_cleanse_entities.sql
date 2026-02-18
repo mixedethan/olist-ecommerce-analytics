@@ -1,7 +1,7 @@
 				-- staging_orders -> cleaning_orders --
--- what are we working with?
 DROP VIEW IF EXISTS cleaning.cleaning_orders;
 
+-- what are we working with?
 SELECT *
 FROM staging.staging_orders;
 
@@ -18,13 +18,13 @@ WITH converted_dates AS (
 		customer_id,
 		UPPER(order_status) AS order_status,
 		-- convert time columns from text to a timestamp data type
-		TO_TIMESTAMP(order_purchase_timestamp, 'YYYY-MM-DD HH24:MI:SS') AS purchase_ts,
-	    TO_TIMESTAMP(order_approved_at, 'YYYY-MM-DD HH24:MI:SS') AS approved_ts,
-	    TO_TIMESTAMP(order_delivered_carrier_date, 'YYYY-MM-DD HH24:MI:SS') AS pickup_ts,
-	    TO_TIMESTAMP(order_delivered_customer_date, 'YYYY-MM-DD HH24:MI:SS') AS delivered_ts,
-	    TO_TIMESTAMP(order_estimated_delivery_date, 'YYYY-MM-DD HH24:MI:SS') AS estimated_ts
+		order_purchase_timestamp AS purchase_ts,
+	    order_approved_at AS approved_ts,
+	    order_delivered_carrier_date AS pickup_ts,
+	    order_delivered_customer_date AS delivered_ts,
+	    order_estimated_delivery_date::timestamp AS estimated_ts
 	FROM staging.staging_orders
-	WHERE order_status NOT IN ('canceled', 'unavailable', 'created', 'approved') -- filter outliers
+	WHERE order_status NOT IN ('CANCELED', 'UNAVAILABLE', 'CREATED', 'APPROVED') -- filter outliers
 )
 
 SELECT 
@@ -63,18 +63,11 @@ SELECT
 	order_item_id AS item_sequence_num,
 	product_id,
 	seller_id,
-	TO_TIMESTAMP(shipping_limit_date, 'YYYY-MM-DD HH24:MI:SS') AS seller_shipping_deadline,
+	shipping_limit_date AS seller_shipping_deadline,
 	price,
 	freight_value,
 	ROUND((price::numeric + freight_value::numeric), 2) AS total_item_value
 FROM staging.staging_items;
-
--- join order with items --
--- CREATE OR REPLACE VIEW cleaning.cleaning_orders_items AS
--- SELECT *
--- FROM cleaning.cleaning_orders AS o
--- INNER JOIN cleaning.cleaning_items AS i ON o. 
-
 
 
 				-- staging_payments -> cleaning_payments --
@@ -93,7 +86,7 @@ CREATE OR REPLACE VIEW cleaning.cleaning_payments AS
 SELECT
 	order_id,
 	payment_sequential,
-	COALESCE(NULLIF(payment_type, 'not_defined')) AS payment_type,
+	COALESCE(NULLIF(payment_type,'not_defined'),'unknown') AS payment_type,
 	payment_installments,
 	payment_value
 FROM staging.staging_payments;
@@ -120,9 +113,9 @@ ON p.product_category_name = t.product_category_name;
 CREATE OR REPLACE VIEW cleaning.cleaning_products AS
 SELECT
 	product_id,
-	product_category_name_english AS product_category_name,
-	product_name_lenght AS product_name_length,
-	product_description_lenght AS product_description_length,
+	COALESCE(product_category_name_english, p.product_category_name) AS product_category_name,
+	product_name_length,
+	product_description_length,
 	product_photos_qty,
 	product_weight_g AS product_weight_grams,
 	product_length_cm,
@@ -172,7 +165,7 @@ SELECT
 	customer_unique_id,
 	customer_zip_code_prefix,
 	staging.UNACCENT(UPPER(customer_city)) AS customer_city,
-	customer_state
+	UPPER(customer_state)
 FROM staging.staging_customers;
 
 SELECT *
