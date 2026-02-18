@@ -31,6 +31,12 @@ SELECT
 	*,
 	ROUND((EXTRACT(EPOCH FROM (delivered_ts - purchase_ts)) / 86400.0), 2) AS delivery_lead_time, -- time taken from purchase to delivery in days
 	ROUND((EXTRACT(EPOCH FROM (estimated_ts - delivered_ts)) / 86400.0), 2) AS delta_estimated_actual, -- difference between estimated arrival and actual arrival in days
+	CASE
+	  WHEN delivered_ts IS NULL THEN NULL
+	  WHEN delivered_ts > estimated_ts THEN 1
+	  ELSE 0
+	END AS is_late_delivery,
+	GREATEST(EXTRACT(EPOCH FROM (delivered_ts - estimated_ts)) / 86400.0, 0) AS days_late,
 	CASE -- check if it was delivered, if not mark it. adding delivery check feature
 		WHEN delivered_ts IS NULL AND order_status = 'DELIVERED' THEN 'DATA ERROR'
 		WHEN delivered_ts IS NULL THEN 'NOT DELIVERED'
