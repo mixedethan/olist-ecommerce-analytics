@@ -26,14 +26,15 @@ WITH converted_dates AS (
 	FROM staging.staging_orders
 	WHERE order_status NOT IN ('canceled', 'unavailable', 'created', 'approved') -- filter outliers
 )
+
 SELECT 
 	*,
-	EXTRACT(EPOCH FROM (delivered_ts - purchase_ts)) / 86400.0 AS delivery_lead_time, -- time taken from purchase to delivery in days
-	EXTRACT(EPOCH FROM (estimated_ts - delivered_ts)) / 86400.0 AS delta_estimated_actual, -- difference between estimated arrival and actual arrival in days
+	ROUND((EXTRACT(EPOCH FROM (delivered_ts - purchase_ts)) / 86400.0), 2) AS delivery_lead_time, -- time taken from purchase to delivery in days
+	ROUND((EXTRACT(EPOCH FROM (estimated_ts - delivered_ts)) / 86400.0), 2) AS delta_estimated_actual, -- difference between estimated arrival and actual arrival in days
 	CASE -- check if it was delivered, if not mark it. adding delivery check feature
-		WHEN delivered_ts IS NULL AND order_status = 'delivered' THEN 'DATA ERROR'
-		WHEN delivered_ts IS NULL THEN 'not delivered'
-		ELSE 'delivered'
+		WHEN delivered_ts IS NULL AND order_status = 'DELIVERED' THEN 'DATA ERROR'
+		WHEN delivered_ts IS NULL THEN 'NOT DELIVERED'
+		ELSE 'DELIVERED'
 	END as delivery_check
 FROM converted_dates;
 
@@ -65,7 +66,7 @@ SELECT
 	TO_TIMESTAMP(shipping_limit_date, 'YYYY-MM-DD HH24:MI:SS') AS seller_shipping_deadline,
 	price,
 	freight_value,
-	(price + freight_value) AS total_item_value
+	ROUND((price::numeric + freight_value::numeric), 2) AS total_item_value
 FROM staging.staging_items;
 
 -- join order with items --
@@ -195,9 +196,11 @@ SELECT * FROM cleaning.cleaning_geolocation;
 CREATE OR REPLACE VIEW cleaning.cleaning_sellers AS
 SELECT
 	seller_id,
-	g.zip_code,
-	g.city,
-	g.state
+	g.zip_code AS seller_zip_code,
+	g.city AS seller_city,
+	g.state AS seller_state,
+	g.lat AS seller_lat,
+	g.long AS seller_long
 FROM staging.staging_sellers AS s
 LEFT JOIN cleaning.cleaning_geolocation AS g
 ON s.seller_zip_code_prefix = g.zip_code;
@@ -216,7 +219,8 @@ SELECT
 	order_id,
 	review_score,
 	review_comment_title,
-	 review_comment_message
-FROM staging.staging_reviews;
+	review_comment_message
+FROM staging.staging_reviews
+WHERE review_score IS NOT NULL;
 
 SELECT * FROM cleaning.cleaning_reviews;

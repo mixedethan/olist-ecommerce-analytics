@@ -1,7 +1,4 @@
--- Master View for Tableau
-DROP VIEW IF EXISTS cleaning.sales_master;
-DROP TABLE IF EXISTS analysis.sales_master;
-
+-- Item Master View for Tableau
 CREATE OR REPLACE VIEW cleaning.sales_master AS
 SELECT
 	-- keys & ids
