@@ -31,6 +31,7 @@ SELECT
 	*,
 	ROUND((EXTRACT(EPOCH FROM (delivered_ts - purchase_ts)) / 86400.0), 2) AS delivery_lead_time, -- time taken from purchase to delivery in days
 	ROUND((EXTRACT(EPOCH FROM (estimated_ts - delivered_ts)) / 86400.0), 2) AS delta_estimated_actual, -- difference between estimated arrival and actual arrival in days
+	-- ROUND((EXTRACT(EPOCH FROM (pickup_ts - purchase_ts)) / 86400.0), 2) AS seller_handling_time,
 	CASE
 	  WHEN delivered_ts IS NULL THEN NULL
 	  WHEN delivered_ts > estimated_ts THEN 1
