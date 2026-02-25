@@ -4,11 +4,8 @@ Olist is a Brazilian e-commerce marketplace that relies on third-party sellers t
 
 The goal of this project is to better understand seller performance, identify the different tiers of sellers, and design a "Seller Scorecard" to optimize the marketplace's health and improve customer retention.
 
-### Executive Summary
-- business problem
-- solution
-- a few next steps
-- the impact
+## Executive Summary
+WIP
 
 ### Questions
 1. How can we identify under-performing sellers?
@@ -27,34 +24,37 @@ The goal of this project is to better understand seller performance, identify th
 2. Create reliable seller KPIs using advanced SQL and Tableau visualizations.
 3. Deploy an interactive Tableau dashboard allowing managers to actively filter and view sellers by performance tiers.
 
-## Roadmap (Portfolio Build Plan)
+## Roadmap
 
-### Phase 1 — Data Pipeline & Modeling (AWS → Postgres)
+### Phase 1 — Data Pipeline & Architecture (AWS → Postgres)
 - [x] Upload raw CSVs in AWS S3
+- [x] Develop ERD diagram as well as the actual database structure
 - [x] Build Python ingestion pipeline (S3 → RDS Postgres)
-- [x] Create staging schema + tables + keys (schema-on-write)
-- [x] Create cleaning schema + standardized views (orders, items, payments, products, customers, sellers, geolocation, reviews)
+- [x] Create DB schema + tables + keys and load data (00_olist_architecture.sql)
 
-### Phase 2 — Seller Overview (SQL-first)
-- [x] Create a single “seller_orders” analysis view/table that maps each order to seller(s) (join orders ↔ items ↔ sellers)
+### Phase 2 — Data Exploration, Cleaning, & Feature Engineering (staging schema → cleaning schema)
+- [x] Define the order of data cleaning based on table dependencies
+- [x] Establish 'cleaning' and 'analysis' schema and define cleaning tools (01_setup.sql)
+- [x] Explore tables for data types, inconsistencies, duplicates, nulls, and unique traits
+- [x] Clean tables via standardization, deduplication, and handling nulls (03_cleanse_entities.sql).
+- [x] Derive new features based on existing ones (delivery_lead_time, delta_estimated_actual, days_late, etc.)
+
+### Phase 3 — Seller Overview & KPIs
+- [x] Create a single Sellers KPI analysis view that maps each order to seller(s) (joins orders ↔ items ↔ sellers)
     - [x]Baseline seller volume, seller revenue, and review performance
-    - [ ] Shipping & delivery performance: late delivery rate (estimated vs delivered), avg delivery_lead_time, shipping-deadline misses
-- [ ] Segment results by category and geography (category, city/state, lat/long) [2][3]
+    - [x] Shipping & delivery performance: late delivery rate (estimated vs delivered), avg delivery_lead_time, shipping-deadline misses
+- [ ] Segment results by category and geography (category, city/state, lat/long)
 
-### Phase 3 — Define the Seller Scorecard (SQL metrics → Tableau score)
-- [ ] Choose final KPI definitions + thresholds (e.g., 1-star rate, late rate, GMV, volume, lead time) [5]
+### Phase 4 — Define the Seller Scorecard (SQL metrics → Tableau score)
+- [ ] Choose final KPI definitions + thresholds (e.g., 1-star rate, late rate, GMV, volume, lead time)
 - [ ] Build a final curated dataset for Tableau (one row per seller with all KPIs)
-- [ ] Define tier logic (Excellent / Good / Watchlist / Toxic) and document it in the README [5]
+- [ ] Define tier logic (Excellent / Good / Watchlist / Toxic) and document it in the README
 
-### Phase 4 — Tableau Dashboard (Seller Scorecard)
-- [ ] Publish Seller Scorecard dashboard (filters: tier, category, state/city, volume, revenue) [5]
+### Phase 5 — Tableau Dashboard (Seller Scorecard)
+- [ ] Publish Seller Scorecard dashboard (filters: tier, category, state/city, volume, revenue)
 - [ ] Add drilldowns: seller profile page + trend views (monthly performance)
-- [ ] Add “Top offenders” and “High value / high quality” seller lists [5]
+- [ ] Add “Top offenders” and “High value / high quality” seller lists
 
-### Phase 5 — Write-Up & Portfolio Polish
-- [ ] Fill in Executive Summary (problem → approach → impact) [5]
-- [ ] Add screenshots/GIFs of Tableau dashboard to README [5]
-- [ ] Add reproducibility notes (how to run pipeline + rebuild schemas/views)
 
 #### Future Goals
 - [ ] Apply unsupervised learning (clustering) to both customer and seller segmentation.
@@ -75,4 +75,3 @@ Raw CSVs → AWS S3 → Python ETL (Schema-on-Write) → AWS RDS → PostgreSQL 
 ![ERD Diagram](https://github.com/mixedethan/olist-ecommerce-analytics/blob/ca4120b8c18dbe21b2260e37bf6968148852854e/docs/olist-erd.png)
 
 ### Results & Business Recommendation
-- put tableau charts here
