@@ -1,6 +1,8 @@
 -- Find which sellers have the most 1-star reviews
 -- Who is responsible for 1-star reviews
 
+-- Pull the kpis, sort by quanitity of one star reviews, look for correlations
+
 
 WITH sellers_items AS (
 SELECT
