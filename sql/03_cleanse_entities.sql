@@ -1,4 +1,5 @@
 				-- staging_orders -> cleaning_orders --
+DROP VIEW IF EXISTS analysis.seller_kpis;
 DROP VIEW IF EXISTS cleaning.cleaning_orders;
 
 -- what are we working with?
@@ -31,9 +32,8 @@ SELECT
 	*,
 	ROUND((EXTRACT(EPOCH FROM (delivered_ts - purchase_ts)) / 86400.0), 2) AS delivery_lead_time, -- time taken from purchase to delivery in days
 	ROUND((EXTRACT(EPOCH FROM (estimated_ts - delivered_ts)) / 86400.0), 2) AS delta_estimated_actual, -- difference between estimated arrival and actual arrival in days
-	-- ROUND((EXTRACT(EPOCH FROM (pickup_ts - purchase_ts)) / 86400.0), 2) AS seller_handling_time,
 	CASE
-	  WHEN delivered_ts IS NULL THEN NULL
+	  WHEN delivered_ts IS NULL THEN NULL -- no delivery
 	  WHEN delivered_ts > estimated_ts THEN 1
 	  ELSE 0
 	END AS is_late_delivery,

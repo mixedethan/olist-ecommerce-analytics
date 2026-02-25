@@ -1,4 +1,5 @@
 CREATE SCHEMA IF NOT EXISTS cleaning;
+CREATE SCHEMA IF NOT EXISTS analysis;
 
 -- introduce an unaccent module to help standardize the location names
 CREATE EXTENSION IF NOT EXISTS unaccent WITH SCHEMA staging;
