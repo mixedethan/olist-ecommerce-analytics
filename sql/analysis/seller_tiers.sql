@@ -23,8 +23,12 @@ LEFT JOIN cleaning.cleaning_orders o ON r.order_id = o.order_id
 )
 
 
-SELECT s.seller_id, ROUND(AVG(o.review_score), 2) AS avg_review_score
+SELECT 
+	s.seller_id,
+	ROUND(AVG(o.review_score), 2) AS avg_review_score,
+	COUNT(*) FILTER (WHERE o.review_score = 1) AS num_one_star
 FROM sellers_items s
 LEFT JOIN order_reviews o ON s.order_id = o.order_id
 GROUP BY seller_id
-ORDER BY AVG(o.review_score) DESC;
+HAVING AVG(review_score) IS NOT NULL
+ORDER BY num_one_star DESC;
