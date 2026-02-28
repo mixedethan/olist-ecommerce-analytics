@@ -25,7 +25,7 @@ WITH converted_dates AS (
 	    order_delivered_customer_date AS delivered_ts,
 	    order_estimated_delivery_date::timestamp AS estimated_ts
 	FROM staging.staging_orders
-	WHERE order_status NOT IN ('CANCELED', 'UNAVAILABLE', 'CREATED', 'APPROVED') -- filter outliers
+	WHERE order_status NOT IN ('UNAVAILABLE', 'CREATED', 'APPROVED') -- filter outliers
 )
 
 SELECT 
@@ -42,7 +42,7 @@ SELECT
 		WHEN delivered_ts IS NULL AND order_status = 'DELIVERED' THEN 'DATA ERROR'
 		WHEN delivered_ts IS NULL THEN 'NOT DELIVERED'
 		ELSE 'DELIVERED'
-	END as delivery_check
+	END as delivery_check -- only checks delivery
 FROM converted_dates;
 
 				-- staging_items -> cleaning_items --
