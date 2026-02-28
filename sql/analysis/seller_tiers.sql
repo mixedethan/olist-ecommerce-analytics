@@ -1,34 +1,70 @@
--- Find which sellers have the most 1-star reviews
--- Who is responsible for 1-star reviews
+-- Seller Tiers
+-- (Excellent/Good/Watchlist/Toxic) using explicit thresholds 
+-- (1‑star rate, late_delivery_rate, avg_review_score, volume/revenue)
 
--- Pull the kpis, sort by quanitity of one star reviews, look for correlations
+-- all our kpis
+SELECT COUNT(seller_id)
+FROM analysis.seller_kpis
+WHERE reviewed_orders > 5;
+
+-- unique order amounts
+SELECT all_orders AS num_orders, COUNT(all_orders) AS occurences
+FROM analysis.seller_kpis
+GROUP BY all_orders;
 
 
-WITH sellers_items AS (
-SELECT
-	s.seller_id,
-	i.order_id
-FROM cleaning.cleaning_sellers s
-LEFT JOIN cleaning.cleaning_items i ON s.seller_id = i.seller_id
-GROUP BY s.seller_id, order_id
+-- too many lesser established sellers will skew our numbers, filter sellers with only > 20 reviewed order
+WITH eligible AS (
+	SELECT *
+	FROM analysis.seller_kpis
+	WHERE reviewed_orders > 3
 ),
 
-order_reviews AS (
-SELECT
-	r.review_id,
-	o.order_id,
-	r.review_score
-FROM cleaning.cleaning_reviews r
-LEFT JOIN cleaning.cleaning_orders o ON r.order_id = o.order_id
+norm AS (
+	SELECT
+		e.*,
+
+		-- scores where higher is better
+		PERCENT_RANK() OVER(ORDER BY e.avg_review_score) AS pr_review_score,
+		PERCENT_RANK() OVER(ORDER BY e.total_item_revenue) AS pr_revenue,
+
+		-- scores where lower is better (we invert to ensure higher percents are better)
+		1 - PERCENT_RANK() OVER(ORDER BY e.one_star_rate) AS pr_one_star_good,
+		1 - PERCENT_RANK() OVER(ORDER BY e.late_delivery_rate) AS pr_late_delivery_good,
+		1 - PERCENT_RANK() OVER(ORDER BY e.avg_delivery_lead_time) AS pr_delivery_lead_time_good
+	FROM eligible e
+),
+
+--
+seller_score_calc AS(
+	SELECT
+		n.*,
+		ROUND(100 * (
+				0.30 * n.pr_review_score +
+				0.10 * n.pr_revenue +
+				0.25 * n.pr_one_star_good +
+				0.25 * n.pr_late_delivery_good +
+				0.10 * n.pr_delivery_lead_time_good)::numeric
+		, 2) AS seller_score
+	FROM norm n
+),
+
+tier_kpis AS (
+	SELECT
+		-- KPIs
+		seller_id,
+		total_item_revenue,
+		avg_review_score,
+		one_star_rate,
+		avg_delivery_lead_time,
+		late_deliveries,
+		late_delivery_rate,
+
+		-- our derived seller score
+		seller_score
+		
+	FROM seller_score_calc s
+	ORDER BY seller_score DESC
 )
 
-
-SELECT 
-	s.seller_id,
-	ROUND(AVG(o.review_score), 2) AS avg_review_score,
-	COUNT(*) FILTER (WHERE o.review_score = 1) AS num_one_star
-FROM sellers_items s
-LEFT JOIN order_reviews o ON s.order_id = o.order_id
-GROUP BY seller_id
-HAVING AVG(review_score) IS NOT NULL
-ORDER BY num_one_star DESC;
+SELECT * FROM tier_kpis;
