@@ -17,6 +17,7 @@ WIP -> Complete after final dashboard to add findings and recommendations
 7. How does missing the 'seller_shipping_dealine' impact the final review score?
 8. How much worse are review scored for late deliveries vs on-time deliveries?
 9. Are there geographic clusters of underperformance?
+10. What defines an under-performing seller?
 
 
 ### Project Goals
@@ -44,11 +45,11 @@ WIP -> Complete after final dashboard to add findings and recommendations
 - [x] Create a single Sellers KPI analysis view that maps each order to seller (seller_kpis.sql)
     - [x]Baseline seller volume, seller revenue, and review performance, shipping & delivery performance including late delivery rate, avg delivery_lead_time, shipping-deadline misses
 - [x] Create marketplace health time series (marketplace_health_monthly.sql)
-- [ ] Create category and geography views to discover hotspots and trends among the two (category_geography.sql)
-- [ ] Create seller tiering view based on the seller KPIs (seller_tiers.sql)
+- [x] Create category and geography views to discover hotspots and trends (category_geography.sql)
+- [x] Create seller tiering view based on the seller KPIs (seller_tiers.sql)
+    - [x] Determine KPIs weights/thresholds for each tier. 50-60% customer experience, 30-40% reliabitlity, and 10-20% on business impact.
 
 ### Phase 4 — Tableau Seller Scorecard
-- [ ] Define final KPI thresholds and tier rules (Excellent / Good / Watchlist / Toxic)
 - [ ] Build Seller Scorecard dashboard with filters for tier, category, state/city, volume, and revenue
 - [ ] Add drilldowns: seller profile + “why toxic?” (e.g. late delivery impact, 1-star drivers)
 
