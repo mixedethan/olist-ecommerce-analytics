@@ -50,7 +50,7 @@ WIP -> Complete after final dashboard to add findings and recommendations
     - [x] Determine KPIs weights/thresholds for each tier. 50-60% customer experience, 30-40% reliabitlity, and 10-20% on business impact.
 
 ### Phase 4 — Tableau Seller Scorecard
-- [ ] Build Seller Scorecard dashboard with filters for tier, category, state/city, volume, and revenue
+- [x] Build Marketplace Health and Seller Scorecard dashboards.
 - [ ] Add drilldowns: seller profile + “why toxic?” (e.g. late delivery impact, 1-star drivers)
 
 ### Phase 5 — Results & Recommendations
