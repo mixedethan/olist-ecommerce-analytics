@@ -46,9 +46,10 @@ CREATE OR REPLACE VIEW analysis.seller_tiers AS (
 	
 	percentiles AS (
 		SELECT
-			PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY seller_score) AS p50_score,
-			PERCENTILE_CONT(0.7) WITHIN GROUP (ORDER BY seller_score) AS p70_score,
-			PERCENTILE_CONT(0.9) WITHIN GROUP (ORDER BY seller_score) AS p90_score
+			PERCENTILE_CONT(0.10) WITHIN GROUP (ORDER BY seller_score) AS p10_score,
+    		PERCENTILE_CONT(0.30) WITHIN GROUP (ORDER BY seller_score) AS p30_score,
+    		PERCENTILE_CONT(0.70) WITHIN GROUP (ORDER BY seller_score) AS p70_score,
+    		PERCENTILE_CONT(0.90) WITHIN GROUP (ORDER BY seller_score) AS p90_score
 		FROM seller_score_calc s
 	)
 	
@@ -69,11 +70,12 @@ CREATE OR REPLACE VIEW analysis.seller_tiers AS (
 
 		-- tiers
 		CASE
-			WHEN b.reviewed_orders < 20 OR b.delivered_orders = 0 THEN 'Insufficient Data'
-			WHEN s.seller_score >= p.p90_score THEN 'Excellent'
-			WHEN s.seller_score >= p.p70_score THEN 'Good'
-			WHEN s.seller_score >= p.p50_score THEN 'Watchlist'
-			ELSE 'Toxic'
+		  WHEN b.reviewed_orders < 20 OR b.delivered_orders = 0 THEN 'Insufficient Data'
+		  WHEN s.seller_score >= p.p90_score THEN 'Excellent'
+		  WHEN s.seller_score >= p.p70_score THEN 'Good'
+		  WHEN s.seller_score >= p.p30_score THEN 'Average'
+		  WHEN s.seller_score >= p.p10_score THEN 'Watchlist'
+		  ELSE 'Toxic'
 		END AS tier
 		
 	FROM base b
